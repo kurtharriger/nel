@@ -14,8 +14,8 @@ var session = new nel.Session({server: 'http://localhost:3001'}, function() {
       onSuccess: console.log,
       onError: console.error,
   });
-  session.execute("throw 'error';", {
-      onSuccess: console.log,
-      onError: console.error,
-  });
+  // session.execute("throw 'error';", {
+  //     onSuccess: console.log,
+  //     onError: console.error,
+  // });
 });

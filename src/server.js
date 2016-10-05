@@ -43,15 +43,15 @@ let channel;
 const DEBUG = !!process.env.DEBUG;
 
 let log = DEBUG ?
-  function doLog() {
-    var msg = {
-        log: "SERVER: " + util.format.apply(this, arguments),
-    }
-    if(channel) {
-      channel.send(msg);
-    }
-    console.log(msg);
-  } : function noop() {};
+    function doLog() {
+        var msg = {
+            log: "SERVER: " + util.format.apply(this, arguments),
+        }
+        if (channel) {
+            channel.send(msg);
+        }
+        console.log(msg);
+    } : function noop() {};
 
 
 function Stdout(id, opt) {
@@ -306,146 +306,146 @@ Context.prototype.releaseGlobalContext = function releaseGlobalContext() {
 };
 
 class IpcChannel {
-  constructor() {
-    if(!process.send) {
-      throw new Error('Process must be spawned with ipc channel');
+    constructor() {
+        if (!process.send) {
+            throw new Error('Process must be spawned with ipc channel');
+        }
     }
-  }
-  onMessage(callback) {
-    process.on("message", callback);
-  }
+    onMessage(callback) {
+        process.on("message", callback);
+    }
 
-  send(msg) {
-    process.send(msg);
-  }
+    send(msg) {
+        process.send(msg);
+    }
 }
 
 class SocketChannel {
-  constructor(port = 6001) {
-    this.emitter = new EventEmitter();
-    this.channel = new io(port);
-    this.channel.on('connection', (socket) => {
-      log('client connected');
-      socket.on("message", (msg) => this.emitter.emit('message', msg));
-    });
-    log(`listening on ${port}`);
-  }
+    constructor(port = 6001) {
+        this.emitter = new EventEmitter();
+        this.channel = new io(port);
+        this.channel.on('connection', (socket) => {
+            log('client connected');
+            socket.on("message", (msg) => this.emitter.emit('message', msg));
+        });
+        log(`listening on ${port}`);
+    }
 
-  onMessage(callback) {
-    this.emitter.on('message', callback);
-  }
+    onMessage(callback) {
+        this.emitter.on('message', callback);
+    }
 
-  send(msg) {
-    this.channel.send(msg)
-  }
+    send(msg) {
+        this.channel.send(msg)
+    }
 }
 
 export class Server {
-  constructor(config = {}) {
-    this.config = config;
-  }
+    constructor(config = {}) {
+        this.config = config;
+    }
 
-  start() {
-    channel = this.channel = (this.config.port || !process.send)
-      ? new SocketChannel(this.config.port)
-      : new IpcChannel()
-    // Capture the initial context
-    // (id left undefined to indicate this is the initial context)
-    this.initialContext = new Context();
-    this.initialContext.captureGlobalContext();
-
-    Object.defineProperty(global, "$$defaultMimer$$", {
-        value: defaultMimer,
-        configurable: false,
-        writable: false,
-        enumerable: false,
-    });
-
-    channel.onMessage(this.onMessage.bind(this));
-    process.on("uncaughtException", this.onUncaughtException.bind(this));
-  }
-
-  onUncaughtException(error) {
-      log("UNCAUGHTEXCEPTION:", error.stack);
-      channel.send({
-          stderr: error.stack.toString(),
-      });
-  }
-
-  onMessage(request) {
-      log("REQUEST:", request);
-
-      var action = request[0];
-      var code = request[1];
-      var id = request[2];
-
-      this.initialContext.releaseGlobalContext();
-      var context = new Context(id);
-      context.captureGlobalContext();
-
-      var cleanup = () => {
-        context.releaseGlobalContext();
+    start() {
+        channel = this.channel = (this.config.port || !process.send) ?
+            new SocketChannel(this.config.port) :
+            new IpcChannel()
+            // Capture the initial context
+            // (id left undefined to indicate this is the initial context)
+        this.initialContext = new Context();
         this.initialContext.captureGlobalContext();
-        this.initialContext._done = false;
-      };
 
-      return new Promise((resolve, reject) => {
-        if (action === "getAllPropertyNames") {
-            this.onNameRequest(code, context).then(resolve, reject);
-        } else if (action === "inspect") {
-            this.onInspectRequest(code, context).then(resolve, reject);
-        } else if (action === "run") {
-            this.onRunRequest(code, context).then(resolve, reject);
-        } else {
-            this.context.sendError(new Error("NEL: Unhandled action request: " + action));
-            resolve();
+        Object.defineProperty(global, "$$defaultMimer$$", {
+            value: defaultMimer,
+            configurable: false,
+            writable: false,
+            enumerable: false,
+        });
+
+        channel.onMessage(this.onMessage.bind(this));
+        process.on("uncaughtException", this.onUncaughtException.bind(this));
+    }
+
+    onUncaughtException(error) {
+        log("UNCAUGHTEXCEPTION:", error.stack);
+        channel.send({
+            stderr: error.stack.toString(),
+        });
+    }
+
+    onMessage(request) {
+        log("REQUEST:", request);
+
+        var action = request[0];
+        var code = request[1];
+        var id = request[2];
+
+        this.initialContext.releaseGlobalContext();
+        var context = new Context(id);
+        context.captureGlobalContext();
+
+        var cleanup = () => {
+            context.releaseGlobalContext();
+            this.initialContext.captureGlobalContext();
+            this.initialContext._done = false;
+        };
+
+        return new Promise((resolve, reject) => {
+            if (action === "getAllPropertyNames") {
+                this.onNameRequest(code, context).then(resolve, reject);
+            } else if (action === "inspect") {
+                this.onInspectRequest(code, context).then(resolve, reject);
+            } else if (action === "run") {
+                this.onRunRequest(code, context).then(resolve, reject);
+            } else {
+                this.context.sendError(new Error("NEL: Unhandled action request: " + action));
+                resolve();
+            }
+        }).then(cleanup, cleanup);
+    }
+
+    onNameRequest(code, context) {
+        var message = {
+            id: context.id,
+            names: getAllPropertyNames(this.run(code)),
+        };
+        log("RESULT:", message);
+        context.done(message);
+        return Promise.resolve();
+    }
+
+    onInspectRequest(code, context) {
+        var message = {
+            id: context.id,
+            inspection: inspect(this.run(code)),
+        };
+        log("RESULT:", message);
+        context.done(message);
+        return Promise.resolve();
+    }
+
+    onRunRequest(code, context) {
+        const result = new Promise((resolve) => resolve(this.run(code)));
+
+        // Drop result if the run request initiated the async mode
+        if (context._async) {
+            return Promise.resolve();
         }
-      }).then(cleanup, cleanup);
-  }
 
-  onNameRequest(code, context) {
-      var message = {
-          id: context.id,
-          names: getAllPropertyNames(this.run(code)),
-      };
-      log("RESULT:", message);
-      context.done(message);
-      return Promise.resolve();
-  }
+        // Drop result if the run request has already invoked context.done()
+        if (context._done) {
+            return Promise.resolve();
+        }
 
-  onInspectRequest(code, context) {
-      var message = {
-          id: context.id,
-          inspection: inspect(this.run(code)),
-      };
-      log("RESULT:", message);
-      context.done(message);
-      return Promise.resolve();
-  }
-
-  onRunRequest(code, context) {
-    const result = new Promise((resolve) => resolve(this.run(code)));
-
-    // Drop result if the run request initiated the async mode
-    if (context._async) {
-        return Promise.resolve();
+        return result.then((value) => {
+            context.sendResult(value);
+        }, (error) => {
+            context.sendError(error);
+        });
     }
 
-    // Drop result if the run request has already invoked context.done()
-    if (context._done) {
-        return Promise.resolve();
+    run(code) {
+        return vm.runInThisContext(code);
     }
-
-    return result.then((value) => {
-      context.sendResult(value);
-    }, (error) => {
-      context.sendError(error);
-    });
-  }
-
-  run(code) {
-    return vm.runInThisContext(code);
-  }
 }
 
 

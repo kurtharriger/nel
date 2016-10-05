@@ -114,61 +114,65 @@ paths.server = path.join(paths.thisFolder, "nel_server.js");
 
 
 class ProcessServer {
-  emitter = new EventEmitter();
+    emitter = new EventEmitter();
 
-  constructor(command, args, config) {
-    this.server = spawn(command, args, config);
-    this.server.on("message", (data) => this.emitter.emit('message', data));
-  }
+    constructor(command, args, config) {
+        this.server = spawn(command, args, config);
+        this.server.on("message", (data) => this.emitter.emit('message', data));
+    }
 
-  onMessage(callback) {
-    this.emitter.on("message", callback);
-  }
+    onMessage(callback) {
+        this.emitter.on("message", callback);
+    }
 
-  send(msg) {
-    this.server.send(msg);
-  }
+    send(msg) {
+        this.server.send(msg);
+    }
 
-  kill(signal = "SIGTERM", killCB) {
-    this.server.removeAllListeners();
-    this.server.kill(signal);
-    this.server.on("exit", function (code, signal) {
-        if (killCB) {
-            killCB(code, signal);
-        }
-    }.bind(this));
-  }
+    kill(signal = "SIGTERM", killCB) {
+        this.server.removeAllListeners();
+        this.server.kill(signal);
+        this.server.on("exit", function(code, signal) {
+            if (killCB) {
+                killCB(code, signal);
+            }
+        }.bind(this));
+    }
 }
 class SocketServer {
-  emitter = new EventEmitter();
+    emitter = new EventEmitter();
 
-  constructor(server) {
-    log('connecting to ' + server);
-    this.socket = io.connect(server, {reconnect: true});
-    this.socket.on('connect_error', (error) => {
-      log('failed to connect to server: ', error);
-    });
-    this.socket.on('connect', () => {
-      log('connected');
-    });
-    this.socket.on('disconnect', () => {
-      log('disconnected');
-    });
-    this.socket.on('message', (msg) => this.emitter.emit('message', msg));
-  }
+    constructor(server) {
+        log('connecting to ' + server);
+        this.socket = io.connect(server, {
+            reconnect: true
+        });
+        this.socket.on('connect_error', (error) => {
+            log('failed to connect to server: ', error);
+        });
+        this.socket.on('connect', () => {
+            log('connected');
+        });
+        this.socket.on('disconnect', () => {
+            log('disconnected');
+        });
+        this.socket.on('message', (msg) => this.emitter.emit('message', msg));
+    }
 
-  onMessage(callback) {
-    this.emitter.on("message", callback);
-  }
+    onMessage(callback) {
+        this.emitter.on("message", callback);
+    }
 
-  send(msg) {
-    this.socket.send(msg);
-  }
+    send(msg) {
+        this.socket.send(msg);
+    }
 
-  kill(signal = "SIGTERM", killCB) {
-    this.socket.close();
-    if(killCB) { killCB(); }
-  }
+    kill(signal = "SIGTERM", killCB) {
+        this.socket.close();
+        if (killCB) {
+            killCB();
+        }
+    }
 }
 
 /**
@@ -230,9 +234,7 @@ function Session(nelConfig) {
      */
     this._config = {
         cwd: nelConfig.cwd,
-        stdio: global.DEBUG ?
-            [process.stdin, process.stdout, process.stderr, "ipc"] :
-            ["ignore", "ignore", "ignore", "ipc"],
+        stdio: global.DEBUG ? [process.stdin, process.stdout, process.stderr, "ipc"] : ["ignore", "ignore", "ignore", "ipc"],
     };
 
     /**
@@ -240,11 +242,11 @@ function Session(nelConfig) {
      * @member {module:child_process~ChildProcess}
      * @private
      */
-     if(nelConfig.server) {
-       this._server = new SocketServer(nelConfig.server);
-     } else {
-       this._server = new ProcessServer(Session._command, Session._args, this._config);
-     }
+    if (nelConfig.server) {
+        this._server = new SocketServer(nelConfig.server);
+    } else {
+        this._server = new ProcessServer(Session._command, Session._args, this._config);
+    }
 
 
     /**
